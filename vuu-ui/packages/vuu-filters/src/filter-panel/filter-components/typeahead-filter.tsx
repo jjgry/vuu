@@ -24,10 +24,10 @@ export const TypeaheadFilter = ({
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>(
     existingFilters ?? []
   );
-  const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
-  const startsWithFilter = useRef<boolean>(false);
+  const startsWithFilter = useRef(false);
 
   useEffect(() => {
     setSearchValue("");
