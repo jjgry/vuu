@@ -1,12 +1,12 @@
 import { useTypeaheadSuggestions } from "@finos/vuu-data";
 import { TypeaheadParams } from "@finos/vuu-protocol-types";
 import "./typeahead-filter.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CloseIcon, Icon } from "../icons";
 
 type TypeaheadFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
-  existingFilters: string[] | null;
+  existingFilters?: string[];
   onFilterSubmit: (
     newQuery: string,
     selectedFilters: string[],
@@ -21,9 +21,9 @@ export const TypeaheadFilter = ({
 }: TypeaheadFilterProps) => {
   const [tableName, columnName] = defaultTypeaheadParams;
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [selectedSuggestions, setSelectedSuggestions] = useState<
-    string[] | null
-  >(existingFilters ?? null);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>(
+    existingFilters ?? []
+  );
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [searchValue, setSearchValue] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -46,13 +46,12 @@ export const TypeaheadFilter = ({
       setSuggestions(response);
     });
 
-    const selected = existingFilters ?? null;
-    setSelectedSuggestions(selected);
+    setSelectedSuggestions(existingFilters ?? []);
   }, [columnName, existingFilters, getSuggestions, defaultTypeaheadParams]);
 
   //close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: any): void => {
+    const handleClickOutside = (event: MouseEvent): void => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
         setShowDropdown(false);
       }
@@ -63,7 +62,7 @@ export const TypeaheadFilter = ({
     return () => {
       window.removeEventListener("click", handleClickOutside);
     };
-  });
+  }); // TODO: Empty dependency array??
 
   // get suggestions while typing
   useEffect(() => {
@@ -73,32 +72,23 @@ export const TypeaheadFilter = ({
     });
   }, [searchValue, columnName, tableName, getSuggestions]);
 
-  const isStartsWithFilter = useCallback(() => {
-    if (selectedSuggestions && selectedSuggestions[0]) {
-      const lastThreeCharacters = selectedSuggestions[0].substring(
-        selectedSuggestions[0].length - 3,
-        selectedSuggestions[0].length
-      );
-
-      if (selectedSuggestions.length === 1 && lastThreeCharacters === "...") {
-        return true;
-      }
-    }
-
-    return false;
-  }, [selectedSuggestions]);
-
   // on select new, check if "starts with" filter selected and rebuild query
   useEffect(() => {
+    const isStartsWithFilter = () => {
+      // Last three characters are ...
+      const endsWithElipsis = /\.\.\.$/.test(selectedSuggestions[0]);
+      return selectedSuggestions.length === 1 && endsWithElipsis;
+    };
+
     startsWithFilter.current = isStartsWithFilter();
     const filterQuery = getTypeaheadQuery(
       selectedSuggestions,
       columnName,
       startsWithFilter.current
     );
-    if (filterQuery == null || selectedSuggestions == null) return;
+    if (filterQuery === undefined) return;
     onFilterSubmit(filterQuery, selectedSuggestions, columnName);
-  }, [columnName, isStartsWithFilter, onFilterSubmit, selectedSuggestions]);
+  }, [columnName, onFilterSubmit, selectedSuggestions]);
 
   const handleDropdownToggle = (event: React.MouseEvent): void => {
     event.stopPropagation();
@@ -114,7 +104,10 @@ export const TypeaheadFilter = ({
   };
 
   const getUpdatedSelection = (selectedValue: string) => {
-    if (isAlreadySelected(selectedValue)) return removeOption(selectedValue);
+    if (isAlreadySelected(selectedValue))
+      return selectedSuggestions.filter(
+        (suggestion) => suggestion !== selectedValue
+      );
 
     if (isStartsWithVal(selectedValue) || startsWithFilter.current)
       return [selectedValue];
@@ -123,8 +116,7 @@ export const TypeaheadFilter = ({
   };
 
   const getDisplay = () => {
-    if (!selectedSuggestions || selectedSuggestions.length === 0)
-      return "Filter";
+    if (selectedSuggestions.length === 0) return "Filter";
 
     return (
       <div className="dropdown-tags">
@@ -143,108 +135,84 @@ export const TypeaheadFilter = ({
     );
   };
 
-  const onTagRemove = (e: React.MouseEvent, suggestion: string): void => {
+  const onTagRemove = (
+    e: React.MouseEvent<HTMLSpanElement>,
+    suggestion: string
+  ): void => {
     e.stopPropagation();
-    const newSelection = removeOption(suggestion);
+    const newSelection = selectedSuggestions.filter((x) => x !== suggestion);
     setSelectedSuggestions(newSelection);
     const filterQuery = getTypeaheadQuery(
       newSelection,
       columnName,
       startsWithFilter.current
     );
-    if (filterQuery == null || selectedSuggestions == null) return;
+    if (filterQuery === undefined) return;
     onFilterSubmit(filterQuery, selectedSuggestions, columnName);
   };
 
-  const removeOption = (option: string): string[] | null => {
-    if (selectedSuggestions) {
-      const newSelection = selectedSuggestions.filter((o) => o !== option);
-      return newSelection.length > 0 ? newSelection : null;
-    }
+  const isSelected = (selected: string) =>
+    selectedSuggestions.includes(selected);
 
-    return null;
-  };
-
-  const isSelected = (selected: string): boolean => {
-    if (selectedSuggestions)
-      return (
-        selectedSuggestions.filter((suggestion) => suggestion === selected)
-          .length > 0
-      );
-
-    return false;
-  };
-
-  function isStartsWithVal(selectedVal: string) {
+  const isStartsWithVal = (selectedVal: string) => {
     return selectedVal === searchValue + "...";
-  }
-
-  const isAlreadySelected = (selectedValue: string): boolean => {
-    if (selectedSuggestions)
-      return (
-        selectedSuggestions.findIndex(
-          (suggestion) => suggestion === selectedValue
-        ) >= 0
-      );
-
-    return false;
   };
+
+  const isAlreadySelected = (selectedValue: string) =>
+    selectedSuggestions.includes(selectedValue);
 
   return (
-    <>
-      <div className="dropdown-container" ref={ref}>
-        <div onClick={handleDropdownToggle} className="dropdown-input">
-          <div className="dropdown-selected-value">{getDisplay()}</div>
-          <div className="dropdown-tools">
-            <div className="dropdown-tool">
-              <Icon />
-            </div>
+    <div className="dropdown-container" ref={ref}>
+      <div onClick={handleDropdownToggle} className="dropdown-input">
+        <div className="dropdown-selected-value">{getDisplay()}</div>
+        <div className="dropdown-tools">
+          <div className="dropdown-tool">
+            <Icon />
           </div>
         </div>
-        {showDropdown && (
-          <div className="dropdown-menu">
-            <div className="search-box">
-              <input
-                onChange={onSearch}
-                value={searchValue}
-                ref={searchRef}
-                id="input-field"
-              />
-            </div>
-            {suggestions.map((suggestion: string) => (
-              <div
-                key={suggestion}
-                className={`dropdown-item ${
-                  isSelected(suggestion) && "selected"
-                }`}
-                onClick={() => {
-                  suggestionSelected(suggestion);
-                }}
-              >
-                {suggestion}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
-    </>
+      {showDropdown && (
+        <div className="dropdown-menu">
+          <div className="search-box">
+            <input
+              onChange={onSearch}
+              value={searchValue}
+              ref={searchRef}
+              id="input-field"
+            />
+          </div>
+          {suggestions.map((suggestion: string) => (
+            <div
+              key={suggestion}
+              className={`dropdown-item ${
+                isSelected(suggestion) && "selected"
+              }`}
+              onClick={() => {
+                suggestionSelected(suggestion);
+              }}
+            >
+              {suggestion}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
-function getTypeaheadQuery(
-  filterValues: string[] | null,
+const getTypeaheadQuery = (
+  filterValues: string[],
   column: string,
   isStartsWithFilter?: boolean
-) {
-  if (filterValues && filterValues.length > 0) {
-    if (isStartsWithFilter) {
-      const startsWith = filterValues[0].substring(
-        0,
-        filterValues[0].length - 3
-      );
-      return `${column} starts ${startsWith}`; // multiple starts with filters not currently supported
-    }
-
-    return `${column} in ${JSON.stringify(filterValues)}`;
+) => {
+  if (filterValues.length === 0) {
+    return;
   }
-}
+
+  if (isStartsWithFilter) {
+    const startsWith = filterValues[0].substring(0, filterValues[0].length - 3);
+    return `${column} starts ${startsWith}`; // multiple starts with filters not currently supported
+  }
+
+  return `${column} in ${JSON.stringify(filterValues)}`;
+};
