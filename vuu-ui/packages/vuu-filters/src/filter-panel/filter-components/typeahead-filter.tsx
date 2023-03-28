@@ -4,26 +4,18 @@ import "./typeahead-filter.css";
 import { useEffect, useRef, useState } from "react";
 import { CloseIcon, Icon } from "../icons";
 
-type TypeaheadFilterProps = {
+export type TypeaheadFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
-  existingFilters?: string[];
-  onFilterSubmit: (
-    newQuery: string,
-    selectedFilters: string[],
-    columnName: string
-  ) => void;
+  onFilterSubmit: (columnName: string, query?: string) => void;
 };
 
 export const TypeaheadFilter = ({
   defaultTypeaheadParams,
-  existingFilters,
   onFilterSubmit,
 }: TypeaheadFilterProps) => {
   const [tableName, columnName] = defaultTypeaheadParams;
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>(
-    existingFilters ?? []
-  );
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -46,8 +38,8 @@ export const TypeaheadFilter = ({
       setSuggestions(response);
     });
 
-    setSelectedSuggestions(existingFilters ?? []);
-  }, [columnName, existingFilters, getSuggestions, defaultTypeaheadParams]);
+    setSelectedSuggestions([]);
+  }, [columnName, getSuggestions, defaultTypeaheadParams]);
 
   //close dropdown when clicking outside
   useEffect(() => {
@@ -87,7 +79,7 @@ export const TypeaheadFilter = ({
       startsWithFilter.current
     );
     if (filterQuery === undefined) return;
-    onFilterSubmit(filterQuery, selectedSuggestions, columnName);
+    onFilterSubmit(columnName, filterQuery);
   }, [columnName, onFilterSubmit, selectedSuggestions]);
 
   const handleDropdownToggle = (event: React.MouseEvent): void => {
@@ -148,7 +140,7 @@ export const TypeaheadFilter = ({
       startsWithFilter.current
     );
     if (filterQuery === undefined) return;
-    onFilterSubmit(filterQuery, selectedSuggestions, columnName);
+    onFilterSubmit(columnName, filterQuery);
   };
 
   const isSelected = (selected: string) =>

@@ -1,9 +1,8 @@
 import { ColumnDescriptor } from "@finos/vuu-datagrid-types";
 import { VuuTable } from "@finos/vuu-protocol-types";
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { FilterComponent } from "./filter-components/filter-selector";
 import "./filter-panel.css";
-import { IRange } from "./filter-components/range-filter";
 
 type FilterPanelProps = {
   table: VuuTable;
@@ -21,62 +20,35 @@ export const FilterPanel = ({
   );
   const [allQueries, setAllQueries] = useState<{
     [key: string]: string;
-  } | null>(null);
-  const [filters, setFilters] = useState<{
-    [key: string]: string[] | IRange | null;
-  } | null>(null);
+  }>({});
+  const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    if (allQueries) {
-      const queryString = getFilterQuery(allQueries);
-      onFilterSubmit(queryString);
-    } else {
-      onFilterSubmit("");
-    }
-  }, [allQueries, selectedColumnName, onFilterSubmit]);
+  const getSelectedColumnType = () =>
+    columns.find((column) => column.name === selectedColumnName)
+      ?.serverDataType;
 
-  const getSelectedColumnType = () => {
-    if (selectedColumnName) {
-      const selectedColumn: ColumnDescriptor[] = columns.filter(
-        (column) => column.name === selectedColumnName
-      );
-
-      return selectedColumn[0].serverDataType;
-    }
-
-    return undefined;
-  };
-
-  const handleColumnSelect: React.ChangeEventHandler<HTMLSelectElement> = ({
-    currentTarget,
-  }) => setSelectedColumnName(currentTarget.value);
+  const handleColumnSelect = (e: ChangeEvent<HTMLSelectElement>) =>
+    setSelectedColumnName(e.currentTarget.value);
 
   const handleClear = () => {
     setSelectedColumnName(null);
-    setAllQueries(null);
-    setFilters(null);
+    setAllQueries({});
   };
 
-  const localOnFilterSubmit = (
-    newQuery: string,
-    selectedFilters: string[] | IRange,
-    columnName: string
-  ) => {
-    setFilters((filters) => {
-      return { ...filters, [columnName]: selectedFilters };
-    });
+  const localOnFilterSubmit = (columnName: string, newQuery: string) => {
+    if (!selectedColumnName) return;
 
-    if (selectedColumnName)
-      setAllQueries({ ...allQueries, [selectedColumnName]: newQuery });
+    const newQueries = { ...allQueries, [selectedColumnName]: newQuery };
+    setAllQueries(newQueries); // TODO: Check this works
+    setQuery(getFilterQuery(newQueries))
   };
 
-  const getColumnSelectorOption = (name: string) => {
-    return filters && filters[name] ? (
-      <option className="has-filter">{name}</option>
-    ) : (
-      <option>{name}</option>
-    );
-  };
+  useEffect(()=> {
+    console.log("submitting query:", query)
+    onFilterSubmit(query)
+  }, [query])
+
+  const getColumnSelectorOption = (name: string) => <option>{name}</option>;
 
   return (
     <fieldset id="filter-panel">
@@ -101,7 +73,6 @@ export const FilterPanel = ({
             <FilterComponent
               columnType={getSelectedColumnType()}
               defaultTypeaheadParams={[table, selectedColumnName]}
-              filters={filters ? filters[selectedColumnName] : null}
               onFilterSubmit={localOnFilterSubmit}
             />
             <button

@@ -7,30 +7,33 @@ export type IRange = {
   end?: number;
 };
 
-type RangeFilterProps = {
+export type RangeFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
-  existingFilters: IRange;
   onFilterSubmit: (
-    newQuery: string,
-    selectedFilters: IRange,
-    columnName: string
+    filterColumn: string,
+    query?: string
   ) => void;
 };
 
 export const RangeFilter = ({
   defaultTypeaheadParams,
-  existingFilters,
   onFilterSubmit,
 }: RangeFilterProps) => {
   const columnName = defaultTypeaheadParams[1];
-  const [rangeStart, setRangeStart] = useState(existingFilters.start);
-  const [rangeEnd, setRangeEnd] = useState(existingFilters.end);
+  const [rangeStart, setRangeStart] = useState<number| undefined>();
+  const [rangeEnd, setRangeEnd] = useState<number| undefined>();
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
-    const range = { start: rangeStart, end: rangeEnd };
-    const query = getRangeQuery(columnName, rangeStart, rangeEnd);
-    onFilterSubmit(query, range, columnName);
-  }, [columnName, rangeStart, rangeEnd, onFilterSubmit]);
+    console.log("submitting range filter:", query)
+    onFilterSubmit(columnName, query);
+  }, [columnName, query]) // TODO: Add onFilterSubmit to this without breaking everything
+
+  useEffect(() => {
+    const x = getRangeQuery(columnName, rangeStart, rangeEnd);
+    console.log("new query:", x)
+    setQuery(x);
+  }, [columnName, rangeStart, rangeEnd]);
 
   const startChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
