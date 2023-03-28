@@ -1,7 +1,8 @@
 import { ColumnDescriptor } from "@finos/vuu-datagrid-types";
 import { VuuTable } from "@finos/vuu-protocol-types";
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useState } from "react";
 import { FilterComponent } from "./filter-components/filter-selector";
+import { IRange } from "./filter-components/range-filter";
 import "./filter-panel.css";
 
 type FilterPanelProps = {
@@ -21,7 +22,9 @@ export const FilterPanel = ({
   const [allQueries, setAllQueries] = useState<{
     [key: string]: string;
   }>({});
-  const [query, setQuery] = useState("");
+  const [filters, setFilters] = useState<{
+    [key: string]: string[] | IRange | undefined;
+  }>({});
 
   const getSelectedColumnType = () =>
     columns.find((column) => column.name === selectedColumnName)
@@ -35,18 +38,22 @@ export const FilterPanel = ({
     setAllQueries({});
   };
 
-  const localOnFilterSubmit = (columnName: string, newQuery: string) => {
+  const localOnFilterSubmit = (
+    newFilter: string[] | IRange | undefined,
+    newQuery: string
+  ) => {
     if (!selectedColumnName) return;
 
     const newQueries = { ...allQueries, [selectedColumnName]: newQuery };
-    setAllQueries(newQueries); // TODO: Check this works
-    setQuery(getFilterQuery(newQueries))
-  };
+    const newFilters = { ...filters, [selectedColumnName]: newFilter };
 
-  useEffect(()=> {
-    console.log("submitting query:", query)
-    onFilterSubmit(query)
-  }, [query])
+    setAllQueries(newQueries);
+    setFilters(newFilters);
+
+    const query = getFilterQuery(newQueries);
+    console.log("submitting query:", query);
+    onFilterSubmit(query);
+  };
 
   const getColumnSelectorOption = (name: string) => <option>{name}</option>;
 
@@ -73,6 +80,7 @@ export const FilterPanel = ({
             <FilterComponent
               columnType={getSelectedColumnType()}
               defaultTypeaheadParams={[table, selectedColumnName]}
+              filterValues={filters[selectedColumnName]}
               onFilterSubmit={localOnFilterSubmit}
             />
             <button

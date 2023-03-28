@@ -1,36 +1,45 @@
 import { TypeaheadParams, VuuColumnDataType } from "@finos/vuu-protocol-types";
-import { RangeFilter } from "./range-filter";
+import { IRange, RangeFilter } from "./range-filter";
 import { TypeaheadFilter } from "./typeahead-filter";
 
 type FilterComponentProps = {
   columnType: VuuColumnDataType | undefined;
   defaultTypeaheadParams: TypeaheadParams;
-  onFilterSubmit: (columnName: string, newQuery: string) => void;
+  filterValues: IRange | string[] | undefined;
+  onFilterSubmit: (
+    newFilter: string[] | IRange | undefined,
+    newQuery: string
+  ) => void;
 };
 
 export const FilterComponent = ({
   columnType,
   defaultTypeaheadParams,
+  filterValues,
   onFilterSubmit,
 }: FilterComponentProps) => {
-  if (columnType) {
-    const SelectedFilter = filterComponent[columnType];
-    return (
-      <SelectedFilter
-        defaultTypeaheadParams={defaultTypeaheadParams}
-        onFilterSubmit={onFilterSubmit}
-      />
-    );
+  switch (columnType) {
+    case "string":
+    case "char":
+      return (
+        <TypeaheadFilter
+          defaultTypeaheadParams={defaultTypeaheadParams}
+          filterValues={filterValues as string[] | undefined} // TODO: Remove assertion
+          onFilterSubmit={onFilterSubmit}
+        />
+      );
+    case "int":
+    case "long":
+    case "double":
+      return (
+        <RangeFilter
+          defaultTypeaheadParams={defaultTypeaheadParams}
+          filterValues={filterValues as IRange | undefined} // TODO: Remove assertion
+          onFilterSubmit={onFilterSubmit}
+        />
+      );
+    default:
+      console.log("column type is undefined");
+      return null;
   }
-
-  console.log("column type is undefined");
-  return null;
-};
-
-const filterComponent: { [key: string]: React.FC<any> } = {
-  string: TypeaheadFilter,
-  char: TypeaheadFilter,
-  int: RangeFilter,
-  long: RangeFilter,
-  double: RangeFilter,
 };

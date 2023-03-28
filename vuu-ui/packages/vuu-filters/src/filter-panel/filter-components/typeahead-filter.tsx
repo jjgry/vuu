@@ -6,16 +6,18 @@ import { CloseIcon, Icon } from "../icons";
 
 export type TypeaheadFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
-  onFilterSubmit: (columnName: string, query?: string) => void;
+  onFilterSubmit: (newFilter: string[] | undefined, query: string) => void;
+  filterValues?: string[];
 };
 
 export const TypeaheadFilter = ({
   defaultTypeaheadParams,
+  filterValues = [],
   onFilterSubmit,
 }: TypeaheadFilterProps) => {
   const [tableName, columnName] = defaultTypeaheadParams;
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>(filterValues);
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -79,7 +81,7 @@ export const TypeaheadFilter = ({
       startsWithFilter.current
     );
     if (filterQuery === undefined) return;
-    onFilterSubmit(columnName, filterQuery);
+    onFilterSubmit(selectedSuggestions, filterQuery);
   }, [columnName, onFilterSubmit, selectedSuggestions]);
 
   const handleDropdownToggle = (event: React.MouseEvent): void => {
@@ -140,7 +142,7 @@ export const TypeaheadFilter = ({
       startsWithFilter.current
     );
     if (filterQuery === undefined) return;
-    onFilterSubmit(columnName, filterQuery);
+    onFilterSubmit(newSelection, filterQuery);
   };
 
   const isSelected = (selected: string) =>

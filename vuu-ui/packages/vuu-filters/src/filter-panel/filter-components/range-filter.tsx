@@ -1,5 +1,4 @@
 import { TypeaheadParams } from "@finos/vuu-protocol-types";
-import { useEffect, useState } from "react";
 import "./range-filter.css";
 
 export type IRange = {
@@ -7,42 +6,37 @@ export type IRange = {
   end?: number;
 };
 
-export type RangeFilterProps = {
+type RangeFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
-  onFilterSubmit: (
-    filterColumn: string,
-    query?: string
-  ) => void;
+  filterValues: IRange | undefined;
+  onFilterSubmit: (newFilter: IRange | undefined, query: string) => void;
 };
 
 export const RangeFilter = ({
   defaultTypeaheadParams,
+  filterValues,
   onFilterSubmit,
 }: RangeFilterProps) => {
   const columnName = defaultTypeaheadParams[1];
-  const [rangeStart, setRangeStart] = useState<number| undefined>();
-  const [rangeEnd, setRangeEnd] = useState<number| undefined>();
-  const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    console.log("submitting range filter:", query)
-    onFilterSubmit(columnName, query);
-  }, [columnName, query]) // TODO: Add onFilterSubmit to this without breaking everything
-
-  useEffect(() => {
-    const x = getRangeQuery(columnName, rangeStart, rangeEnd);
-    console.log("new query:", x)
-    setQuery(x);
-  }, [columnName, rangeStart, rangeEnd]);
 
   const startChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    isNaN(value) ? setRangeStart(undefined) : setRangeStart(value);
+    const newRange = {
+      start: isNaN(value) ? undefined : value,
+      end: filterValues?.end,
+    };
+    const query = getRangeQuery(columnName, newRange);
+    onFilterSubmit(newRange, query);
   };
 
   const endChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    isNaN(value) ? setRangeEnd(undefined) : setRangeEnd(value);
+    const newRange = {
+      start: filterValues?.start,
+      end: isNaN(value) ? undefined : value,
+    };
+    const query = getRangeQuery(columnName, newRange);
+    onFilterSubmit(newRange, query);
   };
 
   return (
@@ -51,7 +45,7 @@ export const RangeFilter = ({
         className="range-input"
         name="start"
         onChange={startChangeHandler}
-        value={rangeStart ?? ""}
+        value={filterValues?.start ?? ""}
         type="number"
       />
       {" to "}
@@ -59,26 +53,18 @@ export const RangeFilter = ({
         className="range-input"
         name="end"
         onChange={endChangeHandler}
-        value={rangeEnd ?? ""}
+        value={filterValues?.end ?? ""}
+        type="number"
       />
     </div>
   );
 };
 
-const getRangeQuery = (
-  column: string,
-  rangeStart?: number,
-  rangeEnd?: number
-) => {
-  const startIsDefined = rangeStart !== undefined;
-  const endIsDefined = rangeEnd !== undefined;
+const getRangeQuery = (column: string, range: IRange) => {
+  const startQuery =
+    range.start === undefined ? undefined : `${column} > ${range.start - 1}`;
+  const endQuery =
+    range.end === undefined ? undefined : `${column} < ${range.end + 1}`;
 
-  if (startIsDefined && endIsDefined)
-    return `${column} > ${rangeStart - 1} and ${column} < ${rangeEnd + 1}`;
-
-  if (startIsDefined && !endIsDefined) return `${column} > ${rangeStart - 1}`;
-
-  if (!startIsDefined && endIsDefined) return `${column} < ${rangeEnd + 1}`;
-
-  return "";
+  return [startQuery, endQuery].filter((x) => x !== undefined).join(" and ");
 };
