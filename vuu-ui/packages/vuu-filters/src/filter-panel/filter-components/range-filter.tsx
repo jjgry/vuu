@@ -2,9 +2,14 @@ import { TypeaheadParams } from "@finos/vuu-protocol-types";
 import { useEffect, useState } from "react";
 import "./range-filter.css";
 
+export type IRange = {
+  start?: number;
+  end?: number;
+};
+
 type RangeFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
-  existingFilters: IRange | null;
+  existingFilters: IRange;
   onFilterSubmit: (
     newQuery: string,
     selectedFilters: IRange,
@@ -18,37 +23,23 @@ export const RangeFilter = ({
   onFilterSubmit,
 }: RangeFilterProps) => {
   const columnName = defaultTypeaheadParams[1];
-  const [range, setRange] = useState<IRange | null>(existingFilters ?? null);
-  const [query, setQuery] = useState<string | null>(null);
+  const [rangeStart, setRangeStart] = useState(existingFilters.start);
+  const [rangeEnd, setRangeEnd] = useState(existingFilters.end);
 
   useEffect(() => {
-    setQuery(getRangeQuery(range, columnName));
-  }, [range, columnName]);
-
-  useEffect(() => {
-    if (query == null || range == null) return;
+    const range = { start: rangeStart, end: rangeEnd };
+    const query = getRangeQuery(columnName, rangeStart, rangeEnd);
     onFilterSubmit(query, range, columnName);
-  }, [query, columnName, range, onFilterSubmit]);
+  }, [columnName, rangeStart, rangeEnd, onFilterSubmit]);
 
-  const inputChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value === "" ? null : Number(e.target.value);
-
-    if (value) {
-      setRange({
-        ...(range ?? { start: null, end: null }),
-        [e.target.name]: value,
-      });
-    } else if (rangeIsNull(e.target.name, range)) {
-      setRange(null);
-    }
+  const startChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    isNaN(value) ? setRangeStart(undefined) : setRangeStart(value);
   };
 
-  const rangeIsNull = (modifiedValue: string, range: IRange | null) => {
-    return (
-      range &&
-      ((modifiedValue === "end" && range.start === null) ||
-        (modifiedValue === "start" && range.end === null))
-    );
+  const endChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    isNaN(value) ? setRangeEnd(undefined) : setRangeEnd(value);
   };
 
   return (
@@ -56,45 +47,35 @@ export const RangeFilter = ({
       <input
         className="range-input"
         name="start"
-        onChange={inputChangeHandler}
-        value={(range && range.start) ?? ""}
+        onChange={startChangeHandler}
+        value={rangeStart ?? ""}
+        type="number"
       />
       {" to "}
       <input
         className="range-input"
         name="end"
-        onChange={inputChangeHandler}
-        value={(range && range.end) ?? ""}
+        onChange={endChangeHandler}
+        value={rangeEnd ?? ""}
       />
     </div>
   );
 };
 
-const getRangeQuery = (range: IRange | null, column: string): string => {
-  if (range) {
-    let queryType = "" as keyof typeof queryOptions;
+const getRangeQuery = (
+  column: string,
+  rangeStart?: number,
+  rangeEnd?: number
+) => {
+  const startIsDefined = rangeStart !== undefined;
+  const endIsDefined = rangeEnd !== undefined;
 
-    if (range.start !== null) queryType = "start";
-    if (range.end !== null) {
-      if (queryType === "start") queryType = "both";
-      else queryType = "end";
-    }
+  if (startIsDefined && endIsDefined)
+    return `${column} > ${rangeStart - 1} and ${column} < ${rangeEnd + 1}`;
 
-    const queryOptions = {
-      start: `${column} > ${range.start ? range.start - 1 : null}`,
-      end: `${column} < ${range.end ? range.end + 1 : null}`,
-      both: `${column} > ${
-        range.start ? range.start - 1 : null
-      } and ${column} < ${range.end ? range.end + 1 : null}`,
-    };
+  if (startIsDefined && !endIsDefined) return `${column} > ${rangeStart - 1}`;
 
-    return queryOptions[queryType];
-  }
+  if (!startIsDefined && endIsDefined) return `${column} < ${rangeEnd + 1}`;
 
   return "";
 };
-
-export interface IRange {
-  start: number | null;
-  end: number | null;
-}
