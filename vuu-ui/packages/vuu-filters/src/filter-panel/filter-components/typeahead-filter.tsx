@@ -17,12 +17,48 @@ export const TypeaheadFilter = ({
 }: TypeaheadFilterProps) => {
   const [tableName, columnName] = defaultTypeaheadParams;
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>(filterValues);
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
-  const startsWithFilter = useRef(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const getSuggestions = useTypeaheadSuggestions();
 
+  //close dropdown when clicking outside
+  useEffect(() => {
+    const closeDropdown = (event: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    window.addEventListener("click", closeDropdown);
+
+    return () => {
+      window.removeEventListener("click", closeDropdown);
+    };
+  }, []); // TODO: Empty dependency array??
+
+  // Update selections when column or typing
+  useEffect(() => {
+    const params: TypeaheadParams = searchValue
+      ? [tableName, columnName, searchValue]
+      : defaultTypeaheadParams;
+
+    getSuggestions(params).then((options) => {
+      if (searchValue) {
+        options.unshift(`${searchValue}...`);
+      }
+      setSuggestions(options);
+    });
+  }, [
+    searchValue,
+    columnName,
+    tableName,
+    getSuggestions,
+    defaultTypeaheadParams,
+  ]);
+
+  // Select search input on render after toggle changed
   useEffect(() => {
     setSearchValue("");
     if (showDropdown && searchRef.current) {
@@ -30,135 +66,54 @@ export const TypeaheadFilter = ({
     }
   }, [showDropdown]);
 
-  const ref = useRef<HTMLDivElement>(null);
+  const getUpdatedSelection = (
+    selectedValue: string,
+    isStartsWithFilter: boolean
+  ) => {
+    if (isSelected(selectedValue))
+      return filterValues.filter((suggestion) => suggestion !== selectedValue);
 
-  const getSuggestions = useTypeaheadSuggestions();
+    if (isStartsWithFilter) return [selectedValue];
 
-  // get suggestions & filters on column select
-  useEffect(() => {
-    getSuggestions(defaultTypeaheadParams).then((response) => {
-      setSuggestions(response);
-    });
-
-    setSelectedSuggestions([]);
-  }, [columnName, getSuggestions, defaultTypeaheadParams]);
-
-  //close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-
-    window.addEventListener("click", handleClickOutside);
-
-    return () => {
-      window.removeEventListener("click", handleClickOutside);
-    };
-  }); // TODO: Empty dependency array??
-
-  // get suggestions while typing
-  useEffect(() => {
-    getSuggestions([tableName, columnName, searchValue]).then((options) => {
-      if (searchValue) options.unshift(`${searchValue}...`);
-      setSuggestions(options);
-    });
-  }, [searchValue, columnName, tableName, getSuggestions]);
-
-  // on select new, check if "starts with" filter selected and rebuild query
-  useEffect(() => {
-    const isStartsWithFilter = () => {
-      // Last three characters are ...
-      const endsWithElipsis = /\.\.\.$/.test(selectedSuggestions[0]);
-      return selectedSuggestions.length === 1 && endsWithElipsis;
-    };
-
-    startsWithFilter.current = isStartsWithFilter();
-    const filterQuery = getTypeaheadQuery(
-      selectedSuggestions,
-      columnName,
-      startsWithFilter.current
-    );
-    if (filterQuery === undefined) return;
-    onFilterSubmit(selectedSuggestions, filterQuery);
-  }, [columnName, onFilterSubmit, selectedSuggestions]);
-
-  const handleDropdownToggle = (event: React.MouseEvent): void => {
-    event.stopPropagation();
-    setShowDropdown(!showDropdown);
+    return [...filterValues, selectedValue];
   };
 
-  const onSearch = ({ target }: React.ChangeEvent<HTMLInputElement>): void => {
-    setSearchValue(target.value);
-  };
-
-  const suggestionSelected = (value: string) => {
-    setSelectedSuggestions(getUpdatedSelection(value));
-  };
-
-  const getUpdatedSelection = (selectedValue: string) => {
-    if (isAlreadySelected(selectedValue))
-      return selectedSuggestions.filter(
-        (suggestion) => suggestion !== selectedValue
+  const onTagAddOrRemove =
+    (tagValue: string) => (e: React.MouseEvent<HTMLSpanElement>) => {
+      e.stopPropagation();
+      const isStartsWithFilter = /\.\.\.$/.test(tagValue); // Does the value end in elipsis
+      const newSelection = getUpdatedSelection(tagValue, isStartsWithFilter);
+      const query = getTypeaheadQuery(
+        newSelection,
+        columnName,
+        isStartsWithFilter
       );
+      onFilterSubmit(newSelection, query);
+    };
 
-    if (isStartsWithVal(selectedValue) || startsWithFilter.current)
-      return [selectedValue];
-
-    return [...(selectedSuggestions ?? []), selectedValue];
-  };
-
-  const getDisplay = () => {
-    if (selectedSuggestions.length === 0) return "Filter";
-
-    return (
-      <div className="dropdown-tags">
-        {selectedSuggestions.map((suggestion) => (
-          <div key={suggestion} className="dropdown-tag-item">
-            {suggestion}
-            <span
-              onClick={(e) => onTagRemove(e, suggestion)}
-              className="dropdown-tag-close"
-            >
-              <CloseIcon />
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const onTagRemove = (
-    e: React.MouseEvent<HTMLSpanElement>,
-    suggestion: string
-  ): void => {
-    e.stopPropagation();
-    const newSelection = selectedSuggestions.filter((x) => x !== suggestion);
-    setSelectedSuggestions(newSelection);
-    const filterQuery = getTypeaheadQuery(
-      newSelection,
-      columnName,
-      startsWithFilter.current
-    );
-    if (filterQuery === undefined) return;
-    onFilterSubmit(newSelection, filterQuery);
-  };
-
-  const isSelected = (selected: string) =>
-    selectedSuggestions.includes(selected);
-
-  const isStartsWithVal = (selectedVal: string) => {
-    return selectedVal === searchValue + "...";
-  };
-
-  const isAlreadySelected = (selectedValue: string) =>
-    selectedSuggestions.includes(selectedValue);
+  const isSelected = (selected: string) => filterValues.includes(selected);
 
   return (
     <div className="dropdown-container" ref={ref}>
-      <div onClick={handleDropdownToggle} className="dropdown-input">
-        <div className="dropdown-selected-value">{getDisplay()}</div>
+      <div
+        onClick={() => setShowDropdown(!showDropdown)}
+        className="dropdown-input"
+      >
+        <div className="dropdown-selected-value">
+          <div className="dropdown-tags">
+            {filterValues.map((suggestion) => (
+              <div key={suggestion} className="dropdown-tag-item">
+                {suggestion}
+                <span
+                  onClick={onTagAddOrRemove(suggestion)}
+                  className="dropdown-tag-close"
+                >
+                  <CloseIcon />
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="dropdown-tools">
           <div className="dropdown-tool">
             <Icon />
@@ -169,8 +124,7 @@ export const TypeaheadFilter = ({
         <div className="dropdown-menu">
           <div className="search-box">
             <input
-              onChange={onSearch}
-              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
               ref={searchRef}
               id="input-field"
             />
@@ -181,9 +135,7 @@ export const TypeaheadFilter = ({
               className={`dropdown-item ${
                 isSelected(suggestion) && "selected"
               }`}
-              onClick={() => {
-                suggestionSelected(suggestion);
-              }}
+              onClick={onTagAddOrRemove(suggestion)}
             >
               {suggestion}
             </div>
@@ -200,12 +152,12 @@ const getTypeaheadQuery = (
   isStartsWithFilter?: boolean
 ) => {
   if (filterValues.length === 0) {
-    return;
+    return "";
   }
 
   if (isStartsWithFilter) {
     const startsWith = filterValues[0].substring(0, filterValues[0].length - 3);
-    return `${column} starts ${startsWith}`; // multiple starts with filters not currently supported
+    return `${column} starts "${startsWith}"`; // multiple starts with filters not currently supported
   }
 
   return `${column} in ${JSON.stringify(filterValues)}`;

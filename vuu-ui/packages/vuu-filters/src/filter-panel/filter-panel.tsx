@@ -36,6 +36,8 @@ export const FilterPanel = ({
   const handleClear = () => {
     setSelectedColumnName(null);
     setAllQueries({});
+    setFilters({});
+    onFilterSubmit("");
   };
 
   const localOnFilterSubmit = (
@@ -49,10 +51,7 @@ export const FilterPanel = ({
 
     setAllQueries(newQueries);
     setFilters(newFilters);
-
-    const query = getFilterQuery(newQueries);
-    console.log("submitting query:", query);
-    onFilterSubmit(query);
+    onFilterSubmit(getFilterQuery(newQueries));
   };
 
   const getColumnSelectorOption = (name: string) => <option>{name}</option>;
