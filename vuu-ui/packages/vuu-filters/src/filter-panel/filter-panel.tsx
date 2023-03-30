@@ -5,6 +5,9 @@ import { FilterComponent } from "./filter-components/filter-selector";
 import { IRange } from "./filter-components/range-filter";
 import "./filter-panel.css";
 
+type Query = { [key: string]: string };
+type Filter = { [key: string]: string[] | IRange | undefined };
+
 type FilterPanelProps = {
   table: VuuTable;
   columns: ColumnDescriptor[];
@@ -16,45 +19,51 @@ export const FilterPanel = ({
   columns,
   onFilterSubmit,
 }: FilterPanelProps) => {
-  const [selectedColumnName, setSelectedColumnName] = useState<string | null>(
-    null
-  );
-  const [allQueries, setAllQueries] = useState<{
-    [key: string]: string;
-  }>({});
-  const [filters, setFilters] = useState<{
-    [key: string]: string[] | IRange | undefined;
-  }>({});
-
-  const getSelectedColumnType = () =>
-    columns.find((column) => column.name === selectedColumnName)
-      ?.serverDataType;
-
-  const handleColumnSelect = (e: ChangeEvent<HTMLSelectElement>) =>
-    setSelectedColumnName(e.currentTarget.value);
+  const [selectedColumnName, setSelectedColumnName] = useState<string>();
+  const [queries, setQueries] = useState<Query>({});
+  const [filters, setFilters] = useState<Filter>({});
 
   const handleClear = () => {
-    setSelectedColumnName(null);
-    setAllQueries({});
+    setSelectedColumnName(undefined);
+    setQueries({});
     setFilters({});
     onFilterSubmit("");
   };
 
-  const localOnFilterSubmit = (
+  const handleFilterSubmit = (
     newFilter: string[] | IRange | undefined,
     newQuery: string
   ) => {
     if (!selectedColumnName) return;
 
-    const newQueries = { ...allQueries, [selectedColumnName]: newQuery };
-    const newFilters = { ...filters, [selectedColumnName]: newFilter };
+    setFilters({
+      ...filters,
+      [selectedColumnName]: newFilter,
+    });
 
-    setAllQueries(newQueries);
-    setFilters(newFilters);
+    const newQueries = {
+      ...queries,
+      [selectedColumnName]: newQuery,
+    };
+    setQueries(newQueries);
     onFilterSubmit(getFilterQuery(newQueries));
   };
 
-  const getColumnSelectorOption = (name: string) => <option>{name}</option>;
+  const selectedColumnType = columns.find(
+    (column) => column.name === selectedColumnName
+  )?.serverDataType;
+
+  const handleColumnSelect = (e: ChangeEvent<HTMLSelectElement>) =>
+    setSelectedColumnName(e.currentTarget.value);
+
+  const getColumnSelectorOption = (columnName: string) => {
+    const hasFilter = filters[columnName] !== undefined;
+    return (
+      <option className={hasFilter ? "has-filter" : undefined}>
+        {columnName}
+      </option>
+    );
+  };
 
   return (
     <fieldset id="filter-panel">
@@ -77,10 +86,10 @@ export const FilterPanel = ({
         {selectedColumnName ? (
           <div>
             <FilterComponent
-              columnType={getSelectedColumnType()}
+              columnType={selectedColumnType}
               defaultTypeaheadParams={[table, selectedColumnName]}
               filterValues={filters[selectedColumnName]}
-              onFilterSubmit={localOnFilterSubmit}
+              onFilterSubmit={handleFilterSubmit}
             />
             <button
               className="clear-button"
@@ -96,22 +105,7 @@ export const FilterPanel = ({
   );
 };
 
-function getFilterQuery(
-  allQueries: {
-    [key: string]: string;
-  } | null
-) {
-  let newQuery = "";
-
-  if (allQueries) {
-    Object.values(allQueries).forEach((query) => {
-      if (query && query != "") {
-        newQuery += query + " and ";
-      }
-    });
-
-    newQuery = newQuery.slice(0, newQuery.length - 5);
-  }
-
-  return newQuery;
-}
+const getFilterQuery = (queries: Query) =>
+  Object.values(queries)
+    .filter((query) => query != null && query !== "")
+    .join(" and ");
