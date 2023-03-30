@@ -2,7 +2,7 @@ import { useTypeaheadSuggestions } from "@finos/vuu-data";
 import { TypeaheadParams } from "@finos/vuu-protocol-types";
 import "./typeahead-filter.css";
 import { useEffect, useRef, useState } from "react";
-import { CloseIcon, Icon } from "../icons";
+import { CloseIcon, DropdownOpenIcon } from "../icons";
 
 export type TypeaheadFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
@@ -116,7 +116,7 @@ export const TypeaheadFilter = ({
         </div>
         <div className="dropdown-tools">
           <div className="dropdown-tool">
-            <Icon />
+            <DropdownOpenIcon />
           </div>
         </div>
       </div>
