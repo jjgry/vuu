@@ -9,7 +9,7 @@ export type IRange = {
 type RangeFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
   filterValues: IRange | undefined;
-  onFilterSubmit: (newFilter: IRange | undefined, query: string) => void;
+  onFilterSubmit: (newFilter: IRange, query: string) => void;
 };
 
 export const RangeFilter = ({

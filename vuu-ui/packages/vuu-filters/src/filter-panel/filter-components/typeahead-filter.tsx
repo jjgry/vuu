@@ -6,7 +6,7 @@ import { CloseIcon, Icon } from "../icons";
 
 export type TypeaheadFilterProps = {
   defaultTypeaheadParams: TypeaheadParams;
-  onFilterSubmit: (newFilter: string[] | undefined, query: string) => void;
+  onFilterSubmit: (newFilter: string[], query: string) => void;
   filterValues?: string[];
 };
 

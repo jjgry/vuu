@@ -7,7 +7,7 @@ type FilterComponentProps = {
   defaultTypeaheadParams: TypeaheadParams;
   filterValues: IRange | string[] | undefined;
   onFilterSubmit: (
-    newFilter: string[] | IRange | undefined,
+    newFilter: string[] | IRange,
     newQuery: string
   ) => void;
 };

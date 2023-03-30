@@ -1,6 +1,6 @@
 import { ColumnDescriptor } from "@finos/vuu-datagrid-types";
 import { VuuTable } from "@finos/vuu-protocol-types";
-import { ChangeEvent, useState } from "react";
+import { useState } from "react";
 import { FilterComponent } from "./filter-components/filter-selector";
 import { IRange } from "./filter-components/range-filter";
 import "./filter-panel.css";
@@ -19,22 +19,22 @@ export const FilterPanel = ({
   columns,
   onFilterSubmit,
 }: FilterPanelProps) => {
-  const [selectedColumnName, setSelectedColumnName] = useState<string>();
+  const [selectedColumnName, setSelectedColumnName] = useState("");
   const [queries, setQueries] = useState<Query>({});
   const [filters, setFilters] = useState<Filter>({});
 
   const handleClear = () => {
-    setSelectedColumnName(undefined);
+    setSelectedColumnName("");
     setQueries({});
     setFilters({});
     onFilterSubmit("");
   };
 
   const handleFilterSubmit = (
-    newFilter: string[] | IRange | undefined,
+    newFilter: string[] | IRange,
     newQuery: string
   ) => {
-    if (!selectedColumnName) return;
+    if (selectedColumnName === "") return;
 
     setFilters({
       ...filters,
@@ -53,11 +53,9 @@ export const FilterPanel = ({
     (column) => column.name === selectedColumnName
   )?.serverDataType;
 
-  const handleColumnSelect = (e: ChangeEvent<HTMLSelectElement>) =>
-    setSelectedColumnName(e.currentTarget.value);
-
   const getColumnSelectorOption = (columnName: string) => {
-    const hasFilter = filters[columnName] !== undefined;
+    const hasFilter =
+      queries[columnName] !== undefined && queries[columnName] !== "";
     return (
       <option className={hasFilter ? "has-filter" : undefined}>
         {columnName}
@@ -73,9 +71,10 @@ export const FilterPanel = ({
             Column
           </label>
           <select
-            onChange={handleColumnSelect}
+            onChange={(e) => setSelectedColumnName(e.target.value)}
             id="column-selector"
             className="block"
+            value={selectedColumnName}
           >
             <option disabled selected></option>
             {columns.map(({ name }) => getColumnSelectorOption(name))}
@@ -83,7 +82,7 @@ export const FilterPanel = ({
         </div>
       </div>
       <div id="filter-component" className="inline-block">
-        {selectedColumnName ? (
+        {selectedColumnName !== "" ? (
           <div>
             <FilterComponent
               columnType={selectedColumnType}
