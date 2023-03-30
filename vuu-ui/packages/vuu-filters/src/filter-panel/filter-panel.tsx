@@ -1,12 +1,12 @@
 import { ColumnDescriptor } from "@finos/vuu-datagrid-types";
-import { VuuTable } from "@finos/vuu-protocol-types";
+import { TypeaheadParams, VuuTable } from "@finos/vuu-protocol-types";
 import { useState } from "react";
-import { FilterComponent } from "./filter-components/filter-selector";
-import { IRange } from "./filter-components/range-filter";
+import { IRange, RangeFilter } from "./filter-components/range-filter";
+import { TypeaheadFilter } from "./filter-components/typeahead-filter";
 import "./filter-panel.css";
 
 type Query = { [key: string]: string };
-type Filter = { [key: string]: string[] | IRange | undefined };
+type Filter<T extends string[] | IRange> = { [key: string]: T | undefined };
 
 type FilterPanelProps = {
   table: VuuTable;
@@ -21,26 +21,36 @@ export const FilterPanel = ({
 }: FilterPanelProps) => {
   const [selectedColumnName, setSelectedColumnName] = useState("");
   const [queries, setQueries] = useState<Query>({});
-  const [filters, setFilters] = useState<Filter>({});
+  const [rangeFilters, setRangeFilters] = useState<Filter<IRange>>({});
+  const [typeaheadFilters, setTypeaheadFilters] = useState<Filter<string[]>>(
+    {}
+  );
 
   const handleClear = () => {
     setSelectedColumnName("");
     setQueries({});
-    setFilters({});
+    setRangeFilters({});
+    setTypeaheadFilters({});
     onFilterSubmit("");
   };
 
-  const handleFilterSubmit = (
-    newFilter: string[] | IRange,
-    newQuery: string
-  ) => {
-    if (selectedColumnName === "") return;
-
-    setFilters({
-      ...filters,
+  const onTypeaheadFilterSubmit = (newFilter: string[], newQuery: string) => {
+    setTypeaheadFilters({
+      ...typeaheadFilters,
       [selectedColumnName]: newFilter,
     });
+    updateQuery(newQuery);
+  };
 
+  const onRangeFilterSubmit = (newFilter: IRange, newQuery: string) => {
+    setRangeFilters({
+      ...rangeFilters,
+      [selectedColumnName]: newFilter,
+    });
+    updateQuery(newQuery);
+  };
+
+  const updateQuery = (newQuery: string) => {
     const newQueries = {
       ...queries,
       [selectedColumnName]: newQuery,
@@ -63,6 +73,34 @@ export const FilterPanel = ({
     );
   };
 
+  const getFilterComponent = () => {
+    const defaultTypeaheadParams: TypeaheadParams = [table, selectedColumnName];
+    switch (selectedColumnType) {
+      case "string":
+      case "char":
+        return (
+          <TypeaheadFilter
+            defaultTypeaheadParams={defaultTypeaheadParams}
+            filterValues={typeaheadFilters[selectedColumnName]}
+            onFilterSubmit={onTypeaheadFilterSubmit}
+          />
+        );
+      case "int":
+      case "long":
+      case "double":
+        return (
+          <RangeFilter
+            defaultTypeaheadParams={defaultTypeaheadParams}
+            filterValues={rangeFilters[selectedColumnName]}
+            onFilterSubmit={onRangeFilterSubmit}
+          />
+        );
+      default:
+        console.log("column type is not recognised");
+        return null;
+    }
+  };
+
   return (
     <fieldset id="filter-panel">
       <div className="inline-block">
@@ -82,14 +120,9 @@ export const FilterPanel = ({
         </div>
       </div>
       <div id="filter-component" className="inline-block">
-        {selectedColumnName !== "" ? (
+        {selectedColumnName === "" ? null : (
           <div>
-            <FilterComponent
-              columnType={selectedColumnType}
-              defaultTypeaheadParams={[table, selectedColumnName]}
-              filterValues={filters[selectedColumnName]}
-              onFilterSubmit={handleFilterSubmit}
-            />
+            {getFilterComponent()}
             <button
               className="clear-button"
               type="button"
@@ -98,7 +131,7 @@ export const FilterPanel = ({
               Clear
             </button>
           </div>
-        ) : null}
+        )}
       </div>
     </fieldset>
   );
@@ -106,5 +139,5 @@ export const FilterPanel = ({
 
 const getFilterQuery = (queries: Query) =>
   Object.values(queries)
-    .filter((query) => query != null && query !== "")
+    .filter((query) => query !== undefined && query !== "")
     .join(" and ");

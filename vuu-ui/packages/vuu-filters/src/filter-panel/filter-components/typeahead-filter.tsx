@@ -36,7 +36,7 @@ export const TypeaheadFilter = ({
     return () => {
       window.removeEventListener("click", closeDropdown);
     };
-  }, []); // TODO: Empty dependency array??
+  }, []);
 
   // Update selections when column or typing
   useEffect(() => {
